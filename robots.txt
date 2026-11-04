@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://teman-warung-sembangko.vercel.app/sitemap.xml
