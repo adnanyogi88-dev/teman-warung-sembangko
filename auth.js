@@ -25,7 +25,7 @@ function authForm(mode="login"){
   e.preventDefault();const data=new FormData(e.currentTarget),email=String(data.get("email")).trim(),password=String(data.get("password"));
   const submit=e.currentTarget.querySelector('[type="submit"]');submit.disabled=true;message("Memproses...");
   try{
-   if(reg){const {error}=await client.auth.signUp({email,password,options:{data:{display_name:String(data.get("name")).trim()},emailRedirectTo:location.origin}});if(error)throw error;message("Pendaftaran dikirim. Periksa email untuk verifikasi.",true);}
+   if(reg){const {error}=await client.auth.signUp({email,password,options:{data:{display_name:String(data.get("name")).trim(),referral_code:new URLSearchParams(location.search).get("ref")||""},emailRedirectTo:location.origin}});if(error)throw error;message("Pendaftaran dikirim. Periksa email untuk verifikasi.",true);}
    else{const {error}=await client.auth.signInWithPassword({email,password});if(error)throw error;await syncUser();account();}
   }catch(err){message(err.message||"Tidak dapat memproses akun.");}finally{submit.disabled=false;}
  };
@@ -39,7 +39,8 @@ async function account(){
  const {data}=await client.from("profiles").select("display_name,role").eq("id",user.id).maybeSingle();
  if(data){name=data.display_name||name;role=data.role||role;}
  show("Akun Saya",`<div class="account-card"><strong>${esc(name||"Anggota")}</strong><p>${esc(user.email)}</p><p>Peran: ${esc(role==="admin"?"Admin":role==="affiliate"?"Affiliator":"Member")}</p></div>
- <div class="auth-actions"><button id="rename" type="button">Ubah Nama</button><button id="logout" type="button">Keluar</button></div><p id="authStatus" role="status"></p>`);
+ <div class="auth-actions"><button id="goDashboard" type="button">Buka Dashboard</button><button id="rename" type="button">Ubah Nama</button><button id="logout" type="button">Keluar</button></div><p id="authStatus" role="status"></p>`);
+ $("goDashboard").onclick=()=>{location.href="/dashboard.html";};
  $("rename").onclick=async()=>{const next=prompt("Nama tampilan:",name);if(next===null)return;const {error}=await client.from("profiles").update({display_name:next.trim(),updated_at:new Date().toISOString()}).eq("id",user.id);if(error)message(error.message);else{await client.auth.updateUser({data:{display_name:next.trim()}});await syncUser();account();}};
  $("logout").onclick=async()=>{const {error}=await client.auth.signOut();if(error)return message(error.message);user=null;await syncUser();authForm();};
 }
