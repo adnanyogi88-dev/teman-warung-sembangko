@@ -45,7 +45,7 @@ async function loadAffiliate(){
  const [{data:account,error:aErr},{data:refs,error:rErr},{data:comm,error:cErr}]=await Promise.all([
   supabase.from("affiliate_accounts").select("referral_code,status").eq("user_id",currentUser.id).single(),
   supabase.from("affiliate_referrals").select("id,created_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false}),
-  supabase.from("affiliate_commissions").select("amount,status,note,created_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false})
+  supabase.from("affiliate_commissions").select("amount,status,note,created_at,paid_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false})
  ]);
  if(aErr){status("Data affiliate belum tersedia: "+aErr.message);return;}
  const link=location.origin+"/?ref="+encodeURIComponent(account.referral_code);
@@ -54,14 +54,14 @@ async function loadAffiliate(){
  $("referralCount").textContent=refs.length;
  const total=comm.reduce((s,x)=>s+Number(x.amount),0),pending=comm.filter(x=>x.status==="pending"||x.status==="approved").reduce((s,x)=>s+Number(x.amount),0);
  $("commissionTotal").textContent=money(total);$("pendingTotal").textContent=money(pending);
- $("affiliateCommissions").innerHTML=table(["Tanggal","Nominal","Status","Catatan"],comm.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+esc(x.note)+'</td></tr>'));
+ $("affiliateCommissions").innerHTML=table(["Tanggal","Nominal","Status","Tanggal dibayar","Catatan"],comm.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+(x.paid_at?esc(new Date(x.paid_at).toLocaleDateString("id-ID")):"—")+'</td><td>'+esc(x.note)+'</td></tr>'));
  $("affiliateReferrals").innerHTML=table(["Tanggal bergabung","Status"],refs.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>Terdaftar</td></tr>'));
 }
 async function loadAdmin(){
  const [{data:members,error:mErr},{data:apps,error:aErr},{data:comm,error:cErr},{data:affs,error:fErr}]=await Promise.all([
   supabase.from("profiles").select("id,display_name,role,created_at").order("created_at",{ascending:false}),
   supabase.from("affiliate_applications").select("user_id,motivation,status,created_at").eq("status","pending").order("created_at",{ascending:true}),
-  supabase.from("affiliate_commissions").select("amount,status,created_at,affiliate_user_id").order("created_at",{ascending:false}),
+  supabase.from("affiliate_commissions").select("id,amount,status,created_at,affiliate_user_id,paid_at").order("created_at",{ascending:false}),
   supabase.from("affiliate_accounts").select("user_id,referral_code,status")
  ]);
  if(mErr||aErr||cErr||fErr){status("Gagal memuat data admin. Periksa migrasi SQL dan kebijakan akses.");return;}
@@ -73,7 +73,8 @@ async function loadAdmin(){
  $("applicationsTable").innerHTML=table(["ID pengguna","Motivasi","Tanggal","Tindakan"],apps.map(x=>'<tr><td><small>'+esc(x.user_id)+'</small></td><td>'+esc(x.motivation)+'</td><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td><button class="primary" data-review="'+esc(x.user_id)+'" data-approve="true">Setujui</button> <button data-review="'+esc(x.user_id)+'" data-approve="false">Tolak</button></td></tr>'));
  $("applicationsTable").querySelectorAll("[data-review]").forEach(b=>b.onclick=async()=>{const {error}=await supabase.rpc("admin_review_affiliate",{p_user_id:b.dataset.review,p_approve:b.dataset.approve==="true"});if(error)status("Review gagal: "+error.message);else status("Pengajuan affiliate diperbarui.");await loadAdmin();});
  $("commissionAffiliate").innerHTML=affs.filter(a=>a.status==="active").map(a=>'<option value="'+esc(a.user_id)+'">'+esc(a.referral_code)+'</option>').join("");
- $("adminCommissions").innerHTML=table(["Affiliate","Nominal","Status","Tanggal"],comm.map(x=>'<tr><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td></tr>'));
+ $("adminCommissions").innerHTML=table(["Affiliate","Nominal","Status","Tanggal","Tindakan"],comm.map(x=>{const action=x.status==="pending"?'<button class="primary" data-commission-id="'+x.id+'" data-next-status="approved">Setujui</button> <button data-commission-id="'+x.id+'" data-next-status="rejected">Tolak</button>':x.status==="approved"?'<button class="primary" data-commission-id="'+x.id+'" data-next-status="paid">Tandai dibayar</button>':"—";return '<tr><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+action+'</td></tr>';}));
+ $("adminCommissions").querySelectorAll("[data-commission-id]").forEach(b=>b.onclick=async()=>{if(b.dataset.nextStatus==="paid"&&!confirm("Pastikan transfer benar-benar sudah dilakukan. Lanjut tandai dibayar?"))return;b.disabled=true;const {error}=await supabase.rpc("admin_update_commission_status",{p_commission_id:Number(b.dataset.commissionId),p_status:b.dataset.nextStatus});if(error)status("Status komisi gagal diperbarui: "+error.message);else status("Status komisi berhasil diperbarui.");await loadAdmin();});
 }
 $("commissionForm").addEventListener("submit",async e=>{
  e.preventDefault();const affiliate_user_id=$("commissionAffiliate").value,amount=Number($("commissionAmount").value),note=$("commissionNote").value.trim();
