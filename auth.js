@@ -43,7 +43,11 @@ async function account(){
  $("rename").onclick=async()=>{const next=prompt("Nama tampilan:",name);if(next===null)return;const {error}=await client.from("profiles").update({display_name:next.trim(),updated_at:new Date().toISOString()}).eq("id",user.id);if(error)message(error.message);else{await client.auth.updateUser({data:{display_name:next.trim()}});await syncUser();account();}};
  $("logout").onclick=async()=>{const {error}=await client.auth.signOut();if(error)return message(error.message);user=null;await syncUser();authForm();};
 }
+function resetPassword(){
+ show("Buat Password Baru",'<form id="resetForm" class="auth-form"><label>Password baru<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><p id="authStatus" role="status"></p><button class="primary full" type="submit">Simpan Password</button></form>');
+ $("resetForm").onsubmit=async e=>{e.preventDefault();const password=String(new FormData(e.currentTarget).get("password"));const {error}=await client.auth.updateUser({password});if(error)message(error.message);else{message("Password berhasil diperbarui. Silakan masuk kembali.",true);await client.auth.signOut();user=null;await syncUser();setTimeout(()=>authForm("login"),900);}};
+}
 function open(){if(user)account();else authForm();}
 window.TWSAuth={open};
-if(ready){client=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);client.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;syncUser();});syncUser();}
+if(ready){client=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);client.auth.onAuthStateChange((event,session)=>{user=session?.user||null;if(event==="PASSWORD_RECOVERY")resetPassword();syncUser();});syncUser();}
 $("accountTop").onclick=open;
