@@ -180,27 +180,20 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $$
-declare
-  v_code text;
-  v_affiliate uuid;
+as $function$
 begin
   insert into public.profiles (id, display_name)
   values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''))
   on conflict (id) do nothing;
 
-  v_code := upper(coalesce(new.raw_user_meta_data ->> 'referral_code', ''));
-  if v_code <> '' then
-    select user_id into v_affiliate
-    from public.affiliate_accounts
-    where upper(referral_code) = v_code and status = 'active'
-    limit 1;
-    if v_affiliate is not null then
-      insert into public.affiliate_referrals(affiliate_user_id, referred_user_id)
-      values (v_affiliate, new.id)
-      on conflict (referred_user_id) do nothing;
-    end if;
-  end if;
+  insert into public.affiliate_referrals (affiliate_user_id, referred_user_id)
+  select a.user_id, new.id
+  from public.affiliate_accounts as a
+  where upper(a.referral_code) = upper(coalesce(new.raw_user_meta_data ->> 'referral_code', ''))
+    and a.status = 'active'
+    and coalesce(new.raw_user_meta_data ->> 'referral_code', '') <> ''
+  on conflict (referred_user_id) do nothing;
+
   return new;
 end;
-$$;
+$function$;
