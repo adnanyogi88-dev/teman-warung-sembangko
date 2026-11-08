@@ -162,8 +162,15 @@ begin
   if p_role not in ('member','affiliate','admin') then raise exception 'Invalid role'; end if;
   update public.profiles set role = p_role, updated_at = now() where id = p_user_id;
   if not found then raise exception 'User profile not found'; end if;
+  if p_role = 'affiliate' then
+    insert into public.affiliate_accounts(user_id, referral_code, status)
+      values (p_user_id, 'TWS' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)), 'active')
+      on conflict (user_id) do update set status = 'active';
+  elsif p_role = 'member' or p_role = 'admin' then
+    update public.affiliate_accounts set status = 'paused' where user_id = p_user_id;
+  end if;
 end;
-$$;
+$;
 revoke all on function public.admin_set_user_role(uuid, text) from public;
 grant execute on function public.admin_set_user_role(uuid, text) to authenticated;
 
