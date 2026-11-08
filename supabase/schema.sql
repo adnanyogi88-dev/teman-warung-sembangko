@@ -170,7 +170,7 @@ begin
     update public.affiliate_accounts set status = 'paused' where user_id = p_user_id;
   end if;
 end;
-$;
+$$;
 revoke all on function public.admin_set_user_role(uuid, text) from public;
 grant execute on function public.admin_set_user_role(uuid, text) to authenticated;
 
