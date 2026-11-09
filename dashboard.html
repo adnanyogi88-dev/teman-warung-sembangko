@@ -26,11 +26,13 @@
  <h2>Dashboard Affiliate</h2>
  <div class="cards">
   <div class="stat"><span>Referral terdaftar</span><strong id="referralCount">0</strong></div>
-  <div class="stat"><span>Total komisi</span><strong id="commissionTotal">Rp0</strong></div>
-  <div class="stat"><span>Komisi menunggu</span><strong id="pendingTotal">Rp0</strong></div>
+  <div class="stat"><span>Total komisi disetujui/dibayar</span><strong id="commissionTotal">Rp0</strong></div>
+  <div class="stat"><span>Saldo tersedia ditarik</span><strong id="pendingTotal">Rp0</strong></div>
  </div>
  <section class="panel"><h3>Link Referral</h3><p>Bagikan tautan ini. Pendaftaran baru melalui tautan akan dicatat sebagai referral.</p><div id="refLink" class="code"></div><button id="copyRef" class="primary">Salin link referral</button></section>
  <section class="panel"><h3>Riwayat Komisi</h3><div id="affiliateCommissions" class="table-wrap"></div></section>
+ <section class="panel"><h3>Ajukan Penarikan</h3><p>Saldo tersedia: <strong id="withdrawalBalance">Rp0</strong></p><form id="withdrawalForm"><div class="row"><label>Nominal penarikan (Rp)<input id="withdrawalAmount" type="number" min="1" step="1" required></label><label>Metode pembayaran<select id="payoutMethod" required><option value="bank">Transfer bank</option><option value="ewallet">E-wallet</option></select></label></div><div class="row"><label>Nama pemilik rekening/akun<input id="recipientName" maxlength="100" required></label><label>Nomor rekening/nomor e-wallet<input id="payoutDestination" maxlength="160" required></label></div><button id="withdrawalSubmit" class="primary">Kirim pengajuan penarikan</button></form><p class="muted">Masukkan data tujuan pembayaran dengan benar. Data ini hanya ditampilkan kepada akun affiliate terkait dan admin.</p></section>
+ <section class="panel"><h3>Riwayat Penarikan</h3><div id="affiliatePayouts" class="table-wrap"></div></section>
  <section class="panel"><h3>Referral</h3><div id="affiliateReferrals" class="table-wrap"></div></section>
 </section>
 <section id="adminView" class="hidden">
@@ -43,6 +45,7 @@
  <section class="panel"><h3>Anggota & Hak Akses</h3><p class="muted">Perubahan role diproses melalui fungsi admin yang memverifikasi role di database.</p><div id="membersTable" class="table-wrap"></div></section>
  <section class="panel"><h3>Pengajuan Affiliate</h3><div id="applicationsTable" class="table-wrap"></div></section>
  <section class="panel"><h3>Catat Komisi</h3><form id="commissionForm" class="row"><label style="min-width:180px">Affiliate<select id="commissionAffiliate" required></select></label><label style="min-width:120px">Nominal (Rp)<input id="commissionAmount" type="number" min="1" step="1" required></label><label style="min-width:180px">Catatan<input id="commissionNote" maxlength="250"></label><button class="primary" style="align-self:end">Simpan komisi</button></form><div id="adminCommissions" class="table-wrap"></div></section>
+ <section class="panel"><h3>Pengajuan Penarikan Affiliate</h3><div id="adminPayoutRequests" class="table-wrap"></div></section>
 </section>
 </main>
 <script type="module" src="/dashboard.js"></script>
