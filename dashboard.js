@@ -42,29 +42,37 @@ $("affiliateForm").addEventListener("submit",async e=>{
  if(error)status("Pengajuan gagal: "+error.message);else{status("Pengajuan affiliate terkirim dan menunggu pemeriksaan admin.");await loadApplication();}
 });
 async function loadAffiliate(){
- const [{data:account,error:aErr},{data:refs,error:rErr},{data:comm,error:cErr}]=await Promise.all([
+ const [{data:account,error:aErr},{data:refs,error:rErr},{data:comm,error:cErr},{data:payouts,error:pErr}]=await Promise.all([
   supabase.from("affiliate_accounts").select("referral_code,status").eq("user_id",currentUser.id).single(),
   supabase.from("affiliate_referrals").select("id,created_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false}),
-  supabase.from("affiliate_commissions").select("amount,status,note,created_at,paid_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false})
+  supabase.from("affiliate_commissions").select("amount,status,note,created_at,paid_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false}),
+  supabase.from("affiliate_payout_requests").select("id,amount,status,payout_method,payout_destination,recipient_name,admin_note,requested_at,reviewed_at,paid_at").eq("affiliate_user_id",currentUser.id).order("requested_at",{ascending:false})
  ]);
  if(aErr){status("Data affiliate belum tersedia: "+aErr.message);return;}
  const link=location.origin+"/?ref="+encodeURIComponent(account.referral_code);
  $("refLink").textContent=link;$("copyRef").onclick=async()=>{try{await navigator.clipboard.writeText(link);status("Link referral disalin.");}catch{status("Salin link secara manual dari kotak link.");}};
- if(rErr||cErr){status("Sebagian data affiliate belum dapat dimuat.");return;}
+ if(rErr||cErr||pErr){status("Sebagian data affiliate belum dapat dimuat. Pastikan migrasi penarikan sudah dijalankan.");return;}
  $("referralCount").textContent=refs.length;
- const total=comm.reduce((s,x)=>s+Number(x.amount),0),pending=comm.filter(x=>x.status==="pending"||x.status==="approved").reduce((s,x)=>s+Number(x.amount),0);
- $("commissionTotal").textContent=money(total);$("pendingTotal").textContent=money(pending);
+ const total=comm.filter(x=>x.status==="approved"||x.status==="paid").reduce((s,x)=>s+Number(x.amount),0);
+ const reserved=payouts.filter(x=>["pending","approved","paid"].includes(x.status)).reduce((s,x)=>s+Number(x.amount),0);
+ const available=Math.max(0,comm.filter(x=>x.status==="approved").reduce((s,x)=>s+Number(x.amount),0)-reserved);
+ $("commissionTotal").textContent=money(total);$("pendingTotal").textContent=money(available);
+ $("withdrawalAmount").max=String(available);$("withdrawalBalance").textContent=money(available);
+ $("affiliatePayouts").innerHTML=table(["Tanggal pengajuan","Nominal","Tujuan","Status","Catatan admin","Tanggal dibayar"],payouts.map(x=>'<tr><td>'+esc(new Date(x.requested_at).toLocaleDateString("id-ID"))+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payout_method==="bank"?"Transfer bank":"E-wallet")+' · '+esc(x.recipient_name)+'<br><small>'+esc(x.payout_destination)+'</small></td><td>'+esc(x.status)+'</td><td>'+esc(x.admin_note||"—")+'</td><td>'+(x.paid_at?esc(new Date(x.paid_at).toLocaleDateString("id-ID")):"—")+'</td></tr>'));
  $("affiliateCommissions").innerHTML=table(["Tanggal","Nominal","Status","Tanggal dibayar","Catatan"],comm.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+(x.paid_at?esc(new Date(x.paid_at).toLocaleDateString("id-ID")):"—")+'</td><td>'+esc(x.note)+'</td></tr>'));
  $("affiliateReferrals").innerHTML=table(["Tanggal bergabung","Status"],refs.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>Terdaftar</td></tr>'));
+ $("withdrawalForm").onsubmit=async e=>{e.preventDefault();const amount=Number($("withdrawalAmount").value),payout_method=$("payoutMethod").value,recipient_name=$("recipientName").value.trim(),payout_destination=$("payoutDestination").value.trim();if(!Number.isFinite(amount)||amount<=0||amount>available){status("Nominal penarikan melebihi saldo tersedia.");return;}const button=$("withdrawalSubmit");button.disabled=true;const {error}=await supabase.rpc("request_affiliate_withdrawal",{p_amount:amount,p_method:payout_method,p_destination:payout_destination,p_recipient_name:recipient_name});button.disabled=false;if(error){status("Pengajuan penarikan gagal: "+error.message);return;}$("withdrawalForm").reset();status("Pengajuan penarikan berhasil dikirim. Menunggu pemeriksaan admin.");await loadAffiliate();};
+
 }
 async function loadAdmin(){
- const [{data:members,error:mErr},{data:apps,error:aErr},{data:comm,error:cErr},{data:affs,error:fErr}]=await Promise.all([
+ const [{data:members,error:mErr},{data:apps,error:aErr},{data:comm,error:cErr},{data:affs,error:fErr},{data:payouts,error:pErr}]=await Promise.all([
   supabase.from("profiles").select("id,display_name,role,created_at").order("created_at",{ascending:false}),
   supabase.from("affiliate_applications").select("user_id,motivation,status,created_at").eq("status","pending").order("created_at",{ascending:true}),
   supabase.from("affiliate_commissions").select("id,amount,status,created_at,affiliate_user_id,paid_at").order("created_at",{ascending:false}),
-  supabase.from("affiliate_accounts").select("user_id,referral_code,status")
+  supabase.from("affiliate_accounts").select("user_id,referral_code,status"),
+  supabase.from("affiliate_payout_requests").select("id,affiliate_user_id,amount,status,payout_method,payout_destination,recipient_name,admin_note,requested_at,paid_at").order("requested_at",{ascending:false})
  ]);
- if(mErr||aErr||cErr||fErr){status("Gagal memuat data admin. Periksa migrasi SQL dan kebijakan akses.");return;}
+ if(mErr||aErr||cErr||fErr||pErr){status("Gagal memuat data admin. Pastikan migrasi SQL penarikan sudah dijalankan.");return;}
  $("memberTotal").textContent=members.length;$("applicationTotal").textContent=apps.length;
  $("adminCommissionTotal").textContent=money(comm.reduce((s,x)=>s+Number(x.amount),0));
  const emailMap={}; // Email sengaja tidak diambil dari auth.users di browser.
@@ -75,6 +83,9 @@ async function loadAdmin(){
  $("commissionAffiliate").innerHTML=affs.filter(a=>a.status==="active").map(a=>'<option value="'+esc(a.user_id)+'">'+esc(a.referral_code)+'</option>').join("");
  $("adminCommissions").innerHTML=table(["Affiliate","Nominal","Status","Tanggal","Tindakan"],comm.map(x=>{const action=x.status==="pending"?'<button class="primary" data-commission-id="'+x.id+'" data-next-status="approved">Setujui</button> <button data-commission-id="'+x.id+'" data-next-status="rejected">Tolak</button>':x.status==="approved"?'<button class="primary" data-commission-id="'+x.id+'" data-next-status="paid">Tandai dibayar</button>':"—";return '<tr><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+money(x.amount)+'</td><td>'+esc(x.status)+'</td><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+action+'</td></tr>';}));
  $("adminCommissions").querySelectorAll("[data-commission-id]").forEach(b=>b.onclick=async()=>{if(b.dataset.nextStatus==="paid"&&!confirm("Pastikan transfer benar-benar sudah dilakukan. Lanjut tandai dibayar?"))return;b.disabled=true;const {error}=await supabase.rpc("admin_update_commission_status",{p_commission_id:Number(b.dataset.commissionId),p_status:b.dataset.nextStatus});if(error)status("Status komisi gagal diperbarui: "+error.message);else status("Status komisi berhasil diperbarui.");await loadAdmin();});
+ $("adminPayoutRequests").innerHTML=table(["Affiliate","Nominal","Tujuan pembayaran","Status","Tanggal","Tindakan"],payouts.map(x=>{const action=x.status==="pending"?'<button class="primary" data-payout-id="'+x.id+'" data-next-status="approved">Setujui</button> <button data-payout-id="'+x.id+'" data-next-status="rejected">Tolak</button>':x.status==="approved"?'<button class="primary" data-payout-id="'+x.id+'" data-next-status="paid">Tandai dibayar</button>':"—";return '<tr><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+money(x.amount)+'</td><td>'+esc(x.payout_method==="bank"?"Transfer bank":"E-wallet")+'<br>'+esc(x.recipient_name)+'<br><small>'+esc(x.payout_destination)+'</small></td><td>'+esc(x.status)+(x.admin_note?"<br><small>"+esc(x.admin_note)+"</small>":"")+'</td><td>'+esc(new Date(x.requested_at).toLocaleDateString("id-ID"))+'</td><td>'+action+'</td></tr>';}));
+ $("adminPayoutRequests").querySelectorAll("[data-payout-id]").forEach(b=>b.onclick=async()=>{const next=b.dataset.nextStatus;if(next==="paid"&&!confirm("Pastikan transfer sudah benar-benar dilakukan ke tujuan yang tertera. Tandai sebagai dibayar?"))return;const admin_note=prompt("Catatan untuk affiliate (opsional):")||"";b.disabled=true;const {error}=await supabase.rpc("admin_update_payout_status",{p_request_id:Number(b.dataset.payoutId),p_status:next,p_admin_note:admin_note});if(error)status("Status penarikan gagal diperbarui: "+error.message);else status("Status penarikan berhasil diperbarui.");await loadAdmin();});
+
 }
 $("commissionForm").addEventListener("submit",async e=>{
  e.preventDefault();const affiliate_user_id=$("commissionAffiliate").value,amount=Number($("commissionAmount").value),note=$("commissionNote").value.trim();
