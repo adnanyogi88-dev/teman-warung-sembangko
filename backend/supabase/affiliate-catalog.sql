@@ -18,11 +18,11 @@ create index if not exists affiliate_catalog_items_status_type_idx
   on public.affiliate_catalog_items(status,item_type,created_at desc);
 alter table public.affiliate_catalog_items enable row level security;
 revoke all on public.affiliate_catalog_items from anon, authenticated;
-grant select on public.affiliate_catalog_items to authenticated;
+grant select on public.affiliate_catalog_items to anon, authenticated;
 grant insert, update, delete on public.affiliate_catalog_items to authenticated;
 drop policy if exists "affiliate catalog visible items" on public.affiliate_catalog_items;
 create policy "affiliate catalog visible items" on public.affiliate_catalog_items
-  for select to authenticated using (status = 'active' or public.is_admin());
+  for select to anon, authenticated using (status = 'active' or (auth.uid() is not null and public.is_admin()));
 drop policy if exists "admin manages affiliate catalog" on public.affiliate_catalog_items;
 create policy "admin manages affiliate catalog" on public.affiliate_catalog_items
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
