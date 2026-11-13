@@ -4,6 +4,7 @@ create table if not exists public.affiliate_catalog_items (
   item_type text not null check (item_type in ('product','service')),
   title text not null check (char_length(trim(title)) between 2 and 160),
   description text not null default '' check (char_length(description) <= 3000),
+  stock integer not null default 0 check (stock >= 0),
   image_url text not null default '',
   destination_url text not null check (destination_url ~* '^https?://'),
   commission_type text not null default 'fixed' check (commission_type in ('fixed','percent')),
@@ -60,3 +61,6 @@ create policy "admin reviews affiliate item links" on public.affiliate_item_link
 -- Admin can change the review state; affiliates cannot modify submitted URLs or review state.
 revoke update on public.affiliate_item_links from authenticated;
 grant update (status, admin_note, reviewed_at) on public.affiliate_item_links to authenticated;
+
+-- Safe upgrade for projects where the catalog table was created before stock was added.
+alter table public.affiliate_catalog_items add column if not exists stock integer not null default 0 check (stock >= 0);
