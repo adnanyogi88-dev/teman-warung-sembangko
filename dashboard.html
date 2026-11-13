@@ -84,6 +84,11 @@
 </main>
   </div>
 </div>
+<script>
+window.addEventListener("error",e=>{const s=document.getElementById("status");if(s)s.textContent="Gagal menjalankan dashboard: "+(e.message||"JavaScript error")+". Periksa F12 > Console.";});
+window.addEventListener("unhandledrejection",e=>{const s=document.getElementById("status");if(s)s.textContent="Koneksi dashboard gagal: "+(e.reason?.message||String(e.reason))+". Periksa F12 > Console.";});
+setTimeout(()=>{const w=document.getElementById("welcome"),s=document.getElementById("status");if(w&&w.textContent.includes("Memuat akun")&&s&&s.textContent==="Memuat data...")s.textContent="Script dashboard belum berhasil dijalankan. Buka F12 > Console dan kirim pesan error berwarna merah.";},10000);
+</script>
 <script type="module" src="/frontend/js/pages/dashboard.js"></script>
 <script>
 document.getElementById("sidebarToggle")?.addEventListener("click",()=>document.body.classList.toggle("sidebar-collapsed"));
