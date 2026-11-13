@@ -71,8 +71,8 @@
  <section class="panel" id="catalogAdminPanel"><h3>Input Produk & Jasa Affiliate</h3>
   <form id="catalogForm">
    <input type="hidden" id="catalogItemId">
-   <div class="row"><label>Jenis<select id="catalogType" required><option value="product">Produk</option><option value="service">Jasa</option></select></label><label>Nama produk/jasa<input id="catalogTitle" maxlength="160" required></label></div>
-   <label>Deskripsi<textarea id="catalogDescription" maxlength="3000"></textarea></label>
+   <div class="row"><label>Jenis<select id="catalogType" required><option value="product">Produk</option><option value="service">Jasa</option></select></label><label>Nama produk<input id="catalogTitle" maxlength="160" placeholder="Masukkan nama produk" required></label><label>Stok<input id="catalogStock" type="number" min="0" step="1" value="0" required></label></div>
+   <label>Deskripsi<textarea id="catalogDescription" maxlength="3000" placeholder="Jelaskan detail produk..." required></textarea></label>
    <div class="row"><label>URL gambar (opsional)<input id="catalogImage" type="url" placeholder="https://..."></label><label>URL tujuan/landing page<input id="catalogDestination" type="url" placeholder="https://..." required></label></div>
    <div class="row"><label>Model komisi<select id="catalogCommissionType"><option value="fixed">Nominal tetap (Rp)</option><option value="percent">Persentase (%)</option></select></label><label>Nilai komisi<input id="catalogCommissionValue" type="number" min="0" step="0.01" value="0" required></label><label>Status<select id="catalogStatus"><option value="draft">Draft</option><option value="active">Aktif</option><option value="archived">Arsip</option></select></label></div>
    <div class="row"><button class="primary" type="submit">Simpan item</button><button id="catalogCancel" type="button">Kosongkan form</button></div>
