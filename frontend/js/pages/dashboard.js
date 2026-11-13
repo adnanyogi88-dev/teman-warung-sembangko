@@ -131,8 +131,8 @@ $("commissionForm").addEventListener("submit",async e=>{
 $("catalogForm").addEventListener("submit",async e=>{
  e.preventDefault();const id=$("catalogItemId").value;
  const payload={item_type:$("catalogType").value,title:$("catalogTitle").value.trim(),description:$("catalogDescription").value.trim(),stock:Number($("catalogStock").value),image_url:$("catalogImage").value.trim(),destination_url:$("catalogDestination").value.trim(),commission_type:$("catalogCommissionType").value,commission_value:Number($("catalogCommissionValue").value),status:$("catalogStatus").value,updated_at:new Date().toISOString()};
- if(!payload.title||!payload.description||!Number.isInteger(payload.stock)||payload.stock<0||!/^https?:\\/\\//i.test(payload.destination_url)||!Number.isFinite(payload.commission_value)||payload.commission_value<0||(payload.commission_type==="percent"&&payload.commission_value>100)){status("Periksa nama, URL tujuan, dan nilai komisi.");return;}
- if(payload.image_url&&!/^https?:\\/\\//i.test(payload.image_url)){status("URL gambar harus diawali http:// atau https://.");return;}
+ if(!payload.title||!payload.description||!Number.isInteger(payload.stock)||payload.stock<0||!isHttpUrl(payload.destination_url)||!Number.isFinite(payload.commission_value)||payload.commission_value<0||(payload.commission_type==="percent"&&payload.commission_value>100)){status("Periksa nama, URL tujuan, dan nilai komisi.");return;}
+ if(payload.image_url&&!isHttpUrl(payload.image_url)){status("URL gambar harus diawali http:// atau https://.");return;}
  const saveButton=e.currentTarget.querySelector('[type="submit"]');saveButton.disabled=true;
  const result=id?await supabase.from("affiliate_catalog_items").update(payload).eq("id",id):await supabase.from("affiliate_catalog_items").insert({...payload,created_by:currentUser.id});
  saveButton.disabled=false;if(result.error){status("Produk/jasa gagal disimpan: "+result.error.message);return;}
