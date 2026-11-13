@@ -3,13 +3,35 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Dashboard anggota, affiliate, dan admin Teman Warung Sembako.">
-<title>Dashboard | Teman Warung Sembako</title>
+<title>Dashboard Admin | Teman Warung Sembako</title>
+<meta name="theme-color" content="#1d2327">
 <link rel="stylesheet" href="/frontend/css/dashboard.css">
 </head>
-<body>
-<header><div><strong>Teman Warung Sembako</strong><div class="muted">Pusat keanggotaan</div></div><div class="row" style="flex:0 1 auto"><a href="/">Kembali ke website</a><button id="logout">Keluar</button></div></header>
-<main>
-<section class="panel"><p class="muted">DASHBOARD</p><h1 id="welcome">Memuat akun…</h1><div id="identity" class="muted"></div><div id="roleBadge" class="status">Memeriksa hak akses…</div></section>
+<body class="wp-admin">
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="admin-brand" href="/" aria-label="Teman Warung Sembako"><span class="brand-mark">TW</span><span>Teman Warung<br><strong>Sembako</strong></span></a>
+    <div class="sidebar-label">MENU UTAMA</div>
+    <nav class="admin-nav" aria-label="Menu dashboard">
+      <a class="nav-link active" href="#overview"><span class="nav-icon">▦</span>Dashboard</a>
+      <a class="nav-link" href="#catalogAdminPanel"><span class="nav-icon">▤</span>Produk & Jasa</a>
+      <a class="nav-link" href="#affiliateItemLinksAdmin"><span class="nav-icon">↗</span>Link Affiliate</a>
+      <a class="nav-link" href="#membersPanel"><span class="nav-icon">♙</span>Anggota</a>
+      <a class="nav-link" href="#applicationsPanel"><span class="nav-icon">☷</span>Pengajuan Affiliate</a>
+      <a class="nav-link" href="#commissionsPanel"><span class="nav-icon">▧</span>Komisi</a>
+      <a class="nav-link" href="#payoutsPanel"><span class="nav-icon">⇄</span>Penarikan</a>
+      <div class="sidebar-label secondary-label">AKUN</div>
+      <a class="nav-link" href="/"><span class="nav-icon">↗</span>Lihat Website</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="online-dot"></span> Sistem dashboard</div>
+  </aside>
+  <div class="admin-main">
+    <header class="admin-topbar">
+      <div class="topbar-left"><button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Buka/tutup menu">☰</button><span>Panel Administrasi</span></div>
+      <div class="topbar-right"><a href="/" class="view-site">Lihat Website ↗</a><span class="topbar-separator"></span><span class="admin-avatar" id="topAvatar">A</span><span class="topbar-user" id="topUser">Admin</span><button id="logout" class="logout-button">Keluar</button></div>
+    </header>
+    <main class="admin-content">
+<section class="welcome-panel" id="overview"><p class="eyebrow">RINGKASAN</p><h1 id="welcome">Memuat akun…</h1><div id="identity" class="muted"></div><div id="roleBadge" class="status">Memeriksa hak akses…</div></section>
 <div id="status" class="status" role="status">Memuat data…</div>
 <section id="memberView" class="hidden">
  <h2>Dashboard Member</h2>
@@ -32,6 +54,8 @@
  <section class="panel"><h3>Ajukan Penarikan</h3><p>Saldo tersedia: <strong id="withdrawalBalance">Rp0</strong></p><form id="withdrawalForm"><div class="row"><label>Nominal penarikan (Rp)<input id="withdrawalAmount" type="number" min="50000" step="1000" required></label><label>Metode pembayaran<select id="payoutMethod" required><option value="bank">Transfer bank</option><option value="ewallet">E-wallet</option></select></label></div><div class="row"><label>Nama pemilik rekening/akun<input id="recipientName" maxlength="100" required></label><label>Nomor rekening/nomor e-wallet<input id="payoutDestination" maxlength="160" required></label></div><div class="row"><button id="savePayoutDetails" type="button">Simpan tujuan pembayaran</button><button id="withdrawalSubmit" class="primary">Kirim pengajuan penarikan</button></div></form><p id="withdrawalMinimumNotice" class="muted">Minimum penarikan Rp50.000.</p><p class="muted">Tujuan pembayaran tersimpan untuk pengajuan berikutnya. Data ini hanya ditampilkan kepada akun affiliate terkait.</p></section>
  <section class="panel"><h3>Riwayat Penarikan</h3><div id="affiliatePayouts" class="table-wrap"></div></section>
  <section class="panel"><h3>Referral</h3><div id="affiliateReferrals" class="table-wrap"></div></section>
+ <section class="panel"><h3>Produk & Jasa untuk Dipromosikan</h3><p>Salin tautan affiliate milik Anda untuk produk atau jasa yang tersedia. Tautan akan menunggu persetujuan admin.</p><div id="affiliateCatalogList" class="table-wrap"></div></section>
+ <section class="panel"><h3>Tautan Promosi Saya</h3><div id="affiliateItemLinks" class="table-wrap"></div></section>
 </section>
 <section id="adminView" class="hidden">
  <h2>Dashboard Admin</h2>
@@ -40,11 +64,34 @@
   <div class="stat"><span>Pengajuan affiliate</span><strong id="applicationTotal">0</strong></div>
   <div class="stat"><span>Total komisi tercatat</span><strong id="adminCommissionTotal">Rp0</strong></div>
  </div>
- <section class="panel"><h3>Anggota & Hak Akses</h3><p class="muted">Perubahan role diproses melalui fungsi admin yang memverifikasi role di database.</p><div id="membersTable" class="table-wrap"></div></section>
- <section class="panel"><h3>Pengajuan Affiliate</h3><div id="applicationsTable" class="table-wrap"></div></section>
- <section class="panel"><h3>Catat Komisi</h3><form id="commissionForm" class="row"><label style="min-width:180px">Affiliate<select id="commissionAffiliate" required></select></label><label style="min-width:120px">Nominal (Rp)<input id="commissionAmount" type="number" min="1" step="1" required></label><label style="min-width:180px">Catatan<input id="commissionNote" maxlength="250"></label><button class="primary" style="align-self:end">Simpan komisi</button></form><div id="adminCommissions" class="table-wrap"></div></section>
- <section class="panel"><h3>Pengajuan Penarikan Affiliate</h3><div id="adminPayoutRequests" class="table-wrap"></div></section>
+ <section class="panel" id="membersPanel"><h3>Anggota & Hak Akses</h3><p class="muted">Perubahan role diproses melalui fungsi admin yang memverifikasi role di database.</p><div id="membersTable" class="table-wrap"></div></section>
+ <section class="panel" id="applicationsPanel"><h3>Pengajuan Affiliate</h3><div id="applicationsTable" class="table-wrap"></div></section>
+ <section class="panel" id="commissionsPanel"><h3>Catat Komisi</h3><form id="commissionForm" class="row"><label style="min-width:180px">Affiliate<select id="commissionAffiliate" required></select></label><label style="min-width:120px">Nominal (Rp)<input id="commissionAmount" type="number" min="1" step="1" required></label><label style="min-width:180px">Catatan<input id="commissionNote" maxlength="250"></label><button class="primary" style="align-self:end">Simpan komisi</button></form><div id="adminCommissions" class="table-wrap"></div></section>
+ <section class="panel" id="payoutsPanel"><h3>Pengajuan Penarikan Affiliate</h3><div id="adminPayoutRequests" class="table-wrap"></div></section>
+ <section class="panel" id="catalogAdminPanel"><h3>Input Produk & Jasa Affiliate</h3>
+  <form id="catalogForm">
+   <input type="hidden" id="catalogItemId">
+   <div class="row"><label>Jenis<select id="catalogType" required><option value="product">Produk</option><option value="service">Jasa</option></select></label><label>Nama produk<input id="catalogTitle" maxlength="160" placeholder="Masukkan nama produk" required></label><label>Stok<input id="catalogStock" type="number" min="0" step="1" value="0" required></label></div>
+   <label>Deskripsi<textarea id="catalogDescription" maxlength="3000" placeholder="Jelaskan detail produk..." required></textarea></label>
+   <div class="row"><label>Upload foto produk (JPG, PNG, WebP · maks. 5 MB)<input id="catalogPhotoFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>URL gambar alternatif (opsional)<input id="catalogImage" type="url" placeholder="https://..."></label></div><div class="catalog-photo-preview-wrap"><img id="catalogPhotoPreview" class="catalog-photo-preview hidden" alt="Pratinjau foto produk"><span id="catalogPhotoHint" class="muted">Belum ada foto dipilih.</span></div><label>URL tujuan/landing page<input id="catalogDestination" type="url" placeholder="https://..." required></label>
+   <div class="row"><label>Model komisi<select id="catalogCommissionType"><option value="fixed">Nominal tetap (Rp)</option><option value="percent">Persentase (%)</option></select></label><label>Nilai komisi<input id="catalogCommissionValue" type="number" min="0" step="0.01" value="0" required></label><label>Status<select id="catalogStatus"><option value="draft">Draft</option><option value="active">Aktif</option><option value="archived">Arsip</option></select></label></div>
+   <div class="row"><button class="primary" type="submit">Simpan item</button><button id="catalogCancel" type="button">Kosongkan form</button></div>
+  </form><p class="muted">Item berstatus Aktif akan tampil di dashboard affiliate. Pastikan Anda memiliki izin menggunakan foto dan tautan yang dimasukkan.</p>
+  <div id="catalogAdminTable" class="table-wrap"></div>
+ </section>
+ <section class="panel"><h3>Review Tautan Affiliate</h3><div id="affiliateItemLinksAdmin" class="table-wrap"></div></section>
 </section>
 </main>
+  </div>
+</div>
+<script>
+window.addEventListener("error",e=>{const s=document.getElementById("status");if(s)s.textContent="Gagal menjalankan dashboard: "+(e.message||"JavaScript error")+". Periksa F12 > Console.";});
+window.addEventListener("unhandledrejection",e=>{const s=document.getElementById("status");if(s)s.textContent="Koneksi dashboard gagal: "+(e.reason?.message||String(e.reason))+". Periksa F12 > Console.";});
+setTimeout(()=>{const w=document.getElementById("welcome"),s=document.getElementById("status");if(w&&w.textContent.includes("Memuat akun")&&s&&s.textContent==="Memuat data...")s.textContent="Script dashboard belum berhasil dijalankan. Buka F12 > Console dan kirim pesan error berwarna merah.";},10000);
+</script>
 <script type="module" src="/frontend/js/pages/dashboard.js"></script>
+<script>
+document.getElementById("sidebarToggle")?.addEventListener("click",()=>document.body.classList.toggle("sidebar-collapsed"));
+document.querySelectorAll(".admin-nav a").forEach(a=>a.addEventListener("click",()=>{document.querySelectorAll(".admin-nav a").forEach(x=>x.classList.remove("active"));a.classList.add("active");}));
+</script>
 </body></html>
