@@ -4,6 +4,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"Rp"+Number(n||0).toLocaleString("id-ID");
+const isHttpUrl=value=>{try{const u=new URL(value);return u.protocol==="http:"||u.protocol==="https:";}catch{return false;}};
 const status=(s)=>{ $("status").textContent=s; };
 const table=(headers,rows)=>rows.length?'<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>':'<p class="muted">Belum ada data.</p>';
 let currentUser=null, profile=null;
