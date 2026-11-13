@@ -7,11 +7,14 @@ const money=n=>"Rp"+Number(n||0).toLocaleString("id-ID");
 const status=(s)=>{ $("status").textContent=s; };
 const table=(headers,rows)=>rows.length?'<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>':'<p class="muted">Belum ada data.</p>';
 let currentUser=null, profile=null;
+async function withTimeout(promise,label,ms=12000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+" melewati batas waktu "+(ms/1000)+" detik.")),ms);})]);}finally{clearTimeout(timer);}}
 async function init(){
- const {data:{session}}=await supabase.auth.getSession();
+ status("Menghubungkan ke Supabase...");
+ const {data:{session}}=await withTimeout(supabase.auth.getSession(),"Pemeriksaan sesi login");
  if(!session){location.href="/";return;}
  currentUser=session.user;
- const {data,error}=await supabase.from("profiles").select("id,display_name,role,created_at").eq("id",currentUser.id).single();
+ status("Sesi ditemukan. Memeriksa profil dan hak akses...");
+ const {data,error}=await withTimeout(supabase.from("profiles").select("id,display_name,role,created_at").eq("id",currentUser.id).single(),"Pengambilan profil Supabase");
  if(error||!data){status("Profil belum dapat dibaca: "+(error?.message||"data tidak ditemukan"));return;}
  profile=data;
  $("welcome").textContent="Halo, "+(profile.display_name||currentUser.email.split("@")[0]);
@@ -137,4 +140,4 @@ $("catalogForm").addEventListener("submit",async e=>{
 $("catalogCancel").addEventListener("click",()=>{$("catalogForm").reset();$("catalogItemId").value="";$("catalogCommissionValue").value="0";$("catalogStock").value="0";});
 $("logout").onclick=async()=>{await supabase.auth.signOut();location.href="/";};
 supabase.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session)location.href="/";});
-init().catch(e=>status("Terjadi kesalahan: "+e.message));
+init().catch(e=>{console.error("[TWS dashboard init]",e);status("Dashboard gagal dimuat: "+(e?.message||String(e))+". Buka F12 > Console untuk detail.");});
