@@ -16,6 +16,8 @@ async function init(){
  profile=data;
  $("welcome").textContent="Halo, "+(profile.display_name||currentUser.email.split("@")[0]);
  $("identity").textContent=currentUser.email;
+ $("topUser").textContent=profile.display_name||currentUser.email.split("@")[0];
+ $("topAvatar").textContent=(profile.display_name||currentUser.email).trim().charAt(0).toUpperCase();
  $("roleBadge").textContent="Hak akses: "+profile.role;
  $("displayName").value=profile.display_name||"";
  $("favoriteCount").textContent=(()=>{try{return JSON.parse(localStorage.getItem("tws-reference-v1-favorites")||"[]").length}catch{return 0}})();
