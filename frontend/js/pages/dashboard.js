@@ -3,19 +3,25 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/shared/config/supabase.js";
 const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isHttpUrl=value=>{try{const u=new URL(value);return u.protocol==="http:"||u.protocol==="https:";}catch{return false;}};
 const money=n=>"Rp"+Number(n||0).toLocaleString("id-ID");
 const status=(s)=>{ $("status").textContent=s; };
 const table=(headers,rows)=>rows.length?'<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table>':'<p class="muted">Belum ada data.</p>';
 let currentUser=null, profile=null;
+async function withTimeout(promise,label,ms=12000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+" melewati batas waktu "+(ms/1000)+" detik.")),ms);})]);}finally{clearTimeout(timer);}}
 async function init(){
- const {data:{session}}=await supabase.auth.getSession();
+ status("Menghubungkan ke Supabase...");
+ const {data:{session}}=await withTimeout(supabase.auth.getSession(),"Pemeriksaan sesi login");
  if(!session){location.href="/";return;}
  currentUser=session.user;
- const {data,error}=await supabase.from("profiles").select("id,display_name,role,created_at").eq("id",currentUser.id).single();
+ status("Sesi ditemukan. Memeriksa profil dan hak akses...");
+ const {data,error}=await withTimeout(supabase.from("profiles").select("id,display_name,role,created_at").eq("id",currentUser.id).single(),"Pengambilan profil Supabase");
  if(error||!data){status("Profil belum dapat dibaca: "+(error?.message||"data tidak ditemukan"));return;}
  profile=data;
  $("welcome").textContent="Halo, "+(profile.display_name||currentUser.email.split("@")[0]);
  $("identity").textContent=currentUser.email;
+ $("topUser").textContent=profile.display_name||currentUser.email.split("@")[0];
+ $("topAvatar").textContent=(profile.display_name||currentUser.email).trim().charAt(0).toUpperCase();
  $("roleBadge").textContent="Hak akses: "+profile.role;
  $("displayName").value=profile.display_name||"";
  $("favoriteCount").textContent=(()=>{try{return JSON.parse(localStorage.getItem("tws-reference-v1-favorites")||"[]").length}catch{return 0}})();
@@ -66,6 +72,17 @@ async function loadAffiliate(){
  $("affiliateReferrals").innerHTML=table(["Tanggal bergabung","Status"],refs.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>Terdaftar</td></tr>'));
  $("savePayoutDetails").onclick=async()=>{const payload={user_id:currentUser.id,payout_method:$("payoutMethod").value,recipient_name:$("recipientName").value.trim(),payout_destination:$("payoutDestination").value.trim(),updated_at:new Date().toISOString()};if(payload.recipient_name.length<1||payload.payout_destination.length<3){status("Lengkapi nama pemilik dan nomor rekening/e-wallet terlebih dahulu.");return;}const b=$("savePayoutDetails");b.disabled=true;const {error}=await supabase.from("affiliate_payout_profiles").upsert(payload,{onConflict:"user_id"});b.disabled=false;if(error)status("Tujuan pembayaran gagal disimpan: "+error.message);else status("Tujuan pembayaran berhasil disimpan.");};
  $("withdrawalForm").onsubmit=async e=>{e.preventDefault();const amount=Number($("withdrawalAmount").value),payout_method=$("payoutMethod").value,recipient_name=$("recipientName").value.trim(),payout_destination=$("payoutDestination").value.trim();if(!Number.isFinite(amount)||amount<50000){status("Minimum penarikan adalah Rp50.000.");return;}if(amount>available){status("Nominal penarikan melebihi saldo tersedia.");return;}const button=$("withdrawalSubmit");button.disabled=true;const saved=await supabase.from("affiliate_payout_profiles").upsert({user_id:currentUser.id,payout_method,recipient_name,payout_destination,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(saved.error){button.disabled=false;status("Tujuan pembayaran gagal disimpan: "+saved.error.message);return;}const {error}=await supabase.rpc("request_affiliate_withdrawal",{p_amount:amount,p_method:payout_method,p_destination:payout_destination,p_recipient_name:recipient_name});button.disabled=false;if(error){status("Pengajuan penarikan gagal: "+error.message);return;}$("withdrawalAmount").value="";status("Pengajuan penarikan berhasil dikirim. Menunggu pemeriksaan admin.");await loadAffiliate();};
+ const [{data:catalog,error:catalogError},{data:myLinks,error:linksError}]=await Promise.all([
+  supabase.from("affiliate_catalog_items").select("id,item_type,title,description,stock,destination_url,commission_type,commission_value").eq("status","active").order("created_at",{ascending:false}),
+  supabase.from("affiliate_item_links").select("id,catalog_item_id,affiliate_url,status,admin_note,created_at").eq("affiliate_user_id",currentUser.id).order("created_at",{ascending:false})
+ ]);
+ if(catalogError||linksError){status("Katalog affiliate belum tersedia. Admin perlu menjalankan migrasi affiliate-catalog.sql.");}
+ else{
+  const linked=new Set(myLinks.map(x=>x.catalog_item_id));
+  $("affiliateCatalogList").innerHTML=table(["Jenis","Produk/Jasa","Stok","Komisi","Tautan"],catalog.map(x=>'<tr><td>'+esc(x.item_type==="product"?"Produk":"Jasa")+'</td><td><strong>'+esc(x.title)+'</strong><br><small>'+esc(x.description)+'</small></td><td>'+esc(x.stock)+'</td><td>'+(x.commission_type==="percent"?esc(x.commission_value)+"%":money(x.commission_value))+'</td><td>'+(linked.has(x.id)?"Sudah diajukan":'<button class="primary" data-promote-item="'+esc(x.id)+'">Kirim tautan</button>')+'</td></tr>'));
+  $("affiliateCatalogList").querySelectorAll("[data-promote-item]").forEach(b=>b.onclick=async()=>{const affiliate_url=prompt("Masukkan tautan affiliate milik Anda (URL lengkap https://):");if(!affiliate_url)return;try{const u=new URL(affiliate_url);if(!["http:","https:"].includes(u.protocol))throw new Error();}catch{status("Tautan harus berupa URL http/https yang valid.");return;}b.disabled=true;const {error}=await supabase.from("affiliate_item_links").insert({catalog_item_id:b.dataset.promoteItem,affiliate_user_id:currentUser.id,affiliate_url});if(error)status("Tautan gagal dikirim: "+error.message);else status("Tautan affiliate dikirim untuk ditinjau admin.");await loadAffiliate();});
+  $("affiliateItemLinks").innerHTML=table(["Tanggal","Produk/Jasa","Tautan affiliate","Status","Catatan"],myLinks.map(x=>{const item=catalog.find(c=>c.id===x.catalog_item_id);return '<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td>'+esc(item?.title||"Item tidak aktif")+'</td><td><a href="'+esc(x.affiliate_url)+'" target="_blank" rel="noopener noreferrer">Buka tautan</a></td><td>'+esc(x.status)+'</td><td>'+esc(x.admin_note||"—")+'</td></tr>';}));
+ }
 
 }
 async function loadAdmin(){
@@ -90,6 +107,19 @@ async function loadAdmin(){
  $("adminPayoutRequests").innerHTML=table(["Affiliate","Nominal","Tujuan pembayaran","Status","Tanggal","Tindakan"],payouts.map(x=>{const action=x.status==="pending"?'<button class="primary" data-payout-id="'+x.id+'" data-next-status="approved">Setujui</button> <button data-payout-id="'+x.id+'" data-next-status="rejected">Tolak</button>':x.status==="approved"?'<button class="primary" data-payout-id="'+x.id+'" data-next-status="paid">Tandai dibayar</button>':"—";return '<tr><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+money(x.amount)+'</td><td>'+esc(x.payout_method==="bank"?"Transfer bank":"E-wallet")+'<br>'+esc(x.recipient_name)+'<br><small>'+esc(x.payout_destination)+'</small></td><td>'+esc(x.status)+(x.admin_note?"<br><small>"+esc(x.admin_note)+"</small>":"")+(x.payment_reference?"<br><small>Ref: "+esc(x.payment_reference)+"</small>":"")+'</td><td>'+esc(new Date(x.requested_at).toLocaleDateString("id-ID"))+'</td><td>'+action+'</td></tr>';}));
  $("adminPayoutRequests").querySelectorAll("[data-payout-id]").forEach(b=>b.onclick=async()=>{const next=b.dataset.nextStatus;if(next==="paid"&&!confirm("Pastikan transfer sudah benar-benar dilakukan ke tujuan yang tertera. Tandai sebagai dibayar?"))return;const admin_note=prompt(next==="paid"?"Masukkan nomor referensi/bukti transaksi (wajib):":"Catatan untuk affiliate (opsional):")||"";if(next==="paid"&&!admin_note.trim()){status("Nomor referensi transaksi wajib diisi sebelum menandai dibayar.");return;}b.disabled=true;const {error}=await supabase.rpc("admin_update_payout_status",{p_request_id:Number(b.dataset.payoutId),p_status:next,p_admin_note:admin_note});if(error)status("Status penarikan gagal diperbarui: "+error.message);else status("Status penarikan berhasil diperbarui.");await loadAdmin();});
 
+ const [{data:catalogItems,error:catalogErr},{data:itemLinks,error:itemLinksErr}]=await Promise.all([
+  supabase.from("affiliate_catalog_items").select("*").order("created_at",{ascending:false}),
+  supabase.from("affiliate_item_links").select("id,catalog_item_id,affiliate_user_id,affiliate_url,status,admin_note,created_at").order("created_at",{ascending:false})
+ ]);
+ if(catalogErr||itemLinksErr){status("Katalog produk/jasa belum tersedia. Jalankan backend/supabase/affiliate-catalog.sql.");}
+ else{
+  $("catalogAdminTable").innerHTML=table(["Jenis","Nama","Stok","Komisi","Status","Tindakan"],catalogItems.map(x=>'<tr><td>'+esc(x.item_type)+'</td><td><strong>'+esc(x.title)+'</strong><br><small>'+esc(x.destination_url)+'</small></td><td>'+esc(x.stock)+'</td><td>'+(x.commission_type==="percent"?esc(x.commission_value)+"%":money(x.commission_value))+'</td><td>'+esc(x.status)+'</td><td><button data-edit-catalog="'+esc(x.id)+'">Edit</button> <button data-archive-catalog="'+esc(x.id)+'">Arsip</button></td></tr>'));
+  $("catalogAdminTable").querySelectorAll("[data-edit-catalog]").forEach(b=>b.onclick=()=>{const x=catalogItems.find(v=>v.id===b.dataset.editCatalog);if(!x)return;$("catalogItemId").value=x.id;$("catalogType").value=x.item_type;$("catalogTitle").value=x.title;$("catalogDescription").value=x.description;$("catalogStock").value=x.stock??0;$("catalogImage").value=x.image_url;$("catalogDestination").value=x.destination_url;$("catalogCommissionType").value=x.commission_type;$("catalogCommissionValue").value=x.commission_value;$("catalogStatus").value=x.status;$("catalogForm").scrollIntoView({behavior:"smooth",block:"center"});});
+  $("catalogAdminTable").querySelectorAll("[data-archive-catalog]").forEach(b=>b.onclick=async()=>{if(!confirm("Arsipkan item ini?"))return;const {error}=await supabase.from("affiliate_catalog_items").update({status:"archived",updated_at:new Date().toISOString()}).eq("id",b.dataset.archiveCatalog);if(error)status("Item gagal diarsipkan: "+error.message);else status("Item berhasil diarsipkan.");await loadAdmin();});
+  const itemMap=new Map(catalogItems.map(x=>[x.id,x]));
+  $("affiliateItemLinksAdmin").innerHTML=table(["Tanggal","Affiliate","Produk/Jasa","Tautan","Status","Tindakan"],itemLinks.map(x=>'<tr><td>'+esc(new Date(x.created_at).toLocaleDateString("id-ID"))+'</td><td><small>'+esc(x.affiliate_user_id)+'</small></td><td>'+esc(itemMap.get(x.catalog_item_id)?.title||"Item dihapus")+'</td><td><a href="'+esc(x.affiliate_url)+'" target="_blank" rel="noopener noreferrer">Buka</a></td><td>'+esc(x.status)+'</td><td>'+(x.status==="pending"?'<button class="primary" data-link-review="'+esc(x.id)+'" data-link-status="approved">Setujui</button> <button data-link-review="'+esc(x.id)+'" data-link-status="rejected">Tolak</button>':"—")+'</td></tr>'));
+  $("affiliateItemLinksAdmin").querySelectorAll("[data-link-review]").forEach(b=>b.onclick=async()=>{const admin_note=prompt("Catatan untuk affiliate (opsional):")||"";const {error}=await supabase.from("affiliate_item_links").update({status:b.dataset.linkStatus,admin_note,reviewed_at:new Date().toISOString()}).eq("id",b.dataset.linkReview);if(error)status("Review tautan gagal: "+error.message);else status("Status tautan affiliate diperbarui.");await loadAdmin();});
+ }
 }
 $("commissionForm").addEventListener("submit",async e=>{
  e.preventDefault();const affiliate_user_id=$("commissionAffiliate").value,amount=Number($("commissionAmount").value),note=$("commissionNote").value.trim();
@@ -97,6 +127,18 @@ $("commissionForm").addEventListener("submit",async e=>{
  const {error}=await supabase.from("affiliate_commissions").insert({affiliate_user_id,amount,note});
  if(error)status("Komisi gagal dicatat: "+error.message);else{status("Komisi berhasil dicatat.");$("commissionAmount").value="";$("commissionNote").value="";await loadAdmin();}
 });
+
+$("catalogForm").addEventListener("submit",async e=>{
+ e.preventDefault();const id=$("catalogItemId").value;
+ const payload={item_type:$("catalogType").value,title:$("catalogTitle").value.trim(),description:$("catalogDescription").value.trim(),stock:Number($("catalogStock").value),image_url:$("catalogImage").value.trim(),destination_url:$("catalogDestination").value.trim(),commission_type:$("catalogCommissionType").value,commission_value:Number($("catalogCommissionValue").value),status:$("catalogStatus").value,updated_at:new Date().toISOString()};
+ if(!payload.title||!payload.description||!Number.isInteger(payload.stock)||payload.stock<0||!isHttpUrl(payload.destination_url)||!Number.isFinite(payload.commission_value)||payload.commission_value<0||(payload.commission_type==="percent"&&payload.commission_value>100)){status("Periksa nama, URL tujuan, dan nilai komisi.");return;}
+ if(payload.image_url&&!isHttpUrl(payload.image_url)){status("URL gambar harus diawali http:// atau https://.");return;}
+ const saveButton=e.currentTarget.querySelector('[type="submit"]');saveButton.disabled=true;
+ const result=id?await supabase.from("affiliate_catalog_items").update(payload).eq("id",id):await supabase.from("affiliate_catalog_items").insert({...payload,created_by:currentUser.id});
+ saveButton.disabled=false;if(result.error){status("Produk/jasa gagal disimpan: "+result.error.message);return;}
+ status("Produk/jasa berhasil disimpan.");e.currentTarget.reset();$("catalogItemId").value="";$("catalogCommissionValue").value="0";$("catalogStock").value="0";await loadAdmin();
+});
+$("catalogCancel").addEventListener("click",()=>{$("catalogForm").reset();$("catalogItemId").value="";$("catalogCommissionValue").value="0";$("catalogStock").value="0";});
 $("logout").onclick=async()=>{await supabase.auth.signOut();location.href="/";};
 supabase.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"||!session)location.href="/";});
-init().catch(e=>status("Terjadi kesalahan: "+e.message));
+init().catch(e=>{console.error("[TWS dashboard init]",e);status("Dashboard gagal dimuat: "+(e?.message||String(e))+". Buka F12 > Console untuk detail.");});
