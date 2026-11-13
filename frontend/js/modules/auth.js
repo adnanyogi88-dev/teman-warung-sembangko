@@ -6,7 +6,7 @@ let client = null, user = null;
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function show(title, html) { $("heading").textContent = title; $("panel").innerHTML = html; if (!$("box").open) $("box").showModal(); }
 function message(text, ok=false) { const el=$("authStatus"); if(el){el.className=ok?"auth-success":"auth-error";el.textContent=text;} }
-function configNotice(){show("Masuk / Daftar",'<div class="auth-note">Tampilan login sudah dipasang. Untuk mengaktifkan akun, admin perlu menghubungkan project Supabase dengan mengisi <code>auth-config.js</code> dan menjalankan <code>supabase/schema.sql</code>.</div>');}
+function configNotice(){show("Masuk / Daftar",'<div class="auth-note">Tampilan login sudah dipasang. Untuk mengaktifkan akun, admin perlu menghubungkan project Supabase dengan mengisi <code>shared/config/supabase.js</code> dan menjalankan skrip database di folder <code>backend/supabase/</code>.</div>');}
 function authForm(mode="login"){
  if(!ready||!client) return configNotice();
  const reg=mode==="register";
